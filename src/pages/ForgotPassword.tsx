@@ -4,8 +4,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Mail, ArrowLeft, CheckCircle } from "lucide-react";
+import AuthBrandPanel from "@/components/AuthBrandPanel";
 
 const ForgotPassword = () => {
   const { resetPassword } = useAuth();
@@ -22,43 +22,48 @@ const ForgotPassword = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="absolute inset-0 gradient-primary opacity-20" />
-      <Card className="w-full max-w-md relative z-10 shadow-2xl border-0 bg-card">
-        <CardHeader className="text-center">
-          <div className="mx-auto w-16 h-16 gradient-primary rounded-2xl flex items-center justify-center mb-4 shadow-lg">
-            {sent ? <CheckCircle className="h-8 w-8 text-primary-foreground" /> : <Mail className="h-8 w-8 text-primary-foreground" />}
+    <div className="min-h-screen flex bg-background">
+      <AuthBrandPanel />
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-12">
+        <div className="w-full max-w-md space-y-6">
+          <div className="lg:hidden text-center">
+            <div className="mx-auto w-14 h-14 gradient-primary rounded-2xl flex items-center justify-center mb-3 shadow-lg">
+              {sent ? <CheckCircle className="h-7 w-7 text-primary-foreground" /> : <Mail className="h-7 w-7 text-primary-foreground" />}
+            </div>
           </div>
-          <h1 className="text-2xl font-heading font-bold text-foreground">
-            {sent ? "Check Your Email" : "Reset Password"}
-          </h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            {sent ? `We sent a reset link to ${email}` : "Enter your email to receive a password reset link"}
-          </p>
-        </CardHeader>
-        <CardContent>
+
+          <div className="text-center lg:text-left">
+            <h1 className="text-2xl font-heading font-bold text-foreground">
+              {sent ? "Check Your Email" : "Reset Password"}
+            </h1>
+            <p className="text-muted-foreground text-sm mt-1 font-body">
+              {sent ? `We sent a reset link to ${email}` : "Enter your email to receive a password reset link"}
+            </p>
+          </div>
+
           {!sent ? (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label>Email Address</Label>
-                <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="admin@example.com" required />
+                <Label className="font-body">Email Address</Label>
+                <Input className="h-11 font-body" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@example.com" required />
               </div>
-              <Button type="submit" className="w-full gradient-primary text-primary-foreground font-semibold h-11" disabled={loading}>
+              <Button type="submit" className="w-full gradient-primary text-primary-foreground font-semibold h-11 font-body" disabled={loading}>
                 {loading ? "Sending..." : "Send Reset Link"}
               </Button>
             </form>
           ) : (
-            <Button className="w-full gradient-primary text-primary-foreground font-semibold h-11" onClick={() => setSent(false)}>
+            <Button className="w-full gradient-primary text-primary-foreground font-semibold h-11 font-body" onClick={() => setSent(false)}>
               Send Again
             </Button>
           )}
-          <div className="mt-4 text-center">
-            <Link to="/login" className="text-sm text-primary hover:underline inline-flex items-center gap-1">
+
+          <div className="text-center">
+            <Link to="/login" className="text-sm text-primary hover:underline inline-flex items-center gap-1 font-body">
               <ArrowLeft className="h-3 w-3" /> Back to Sign In
             </Link>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 };
