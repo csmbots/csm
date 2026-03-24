@@ -47,7 +47,7 @@ export interface RegisterData {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Use mock mode when no real backend is available
-const USE_MOCK = true; // Set to false when your Hostinger Node.js API is deployed
+const USE_MOCK = false; // Set to true for local testing without backend
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [admin, setAdmin] = useState<Admin | null>(null);

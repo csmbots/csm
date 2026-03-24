@@ -1,6 +1,7 @@
 // API service layer for Hostinger backend
 // Update API_BASE_URL to your deployed Node.js backend on Hostinger
 const API_BASE_URL = import.meta.env.VITE_API_URL || "https://srv2069.hstgr.io/api";
+// To use a different URL during development, create a .env file with VITE_API_URL=http://localhost:3000/api
 
 interface ApiResponse<T = unknown> {
   success: boolean;
