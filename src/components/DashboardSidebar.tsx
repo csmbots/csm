@@ -1,5 +1,5 @@
 import { NavLink } from "@/components/NavLink";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
@@ -9,6 +9,7 @@ import {
   LayoutDashboard, BarChart3, CalendarCheck, Users, Cpu, Settings, Wifi, MonitorSmartphone,
   Bell, FileText, CreditCard, UserCircle,
 } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 
 const primaryLinks = [
   { title: "Overview", url: "/dashboard", icon: LayoutDashboard },
@@ -27,8 +28,6 @@ const configLinks = [
 const moreLinks = [
   { title: "Notifications", url: "/dashboard/notifications", icon: Bell },
   { title: "Reports", url: "/dashboard/reports", icon: FileText },
-  { title: "Billing", url: "/dashboard/billing", icon: CreditCard },
-  { title: "Account", url: "/dashboard/account", icon: UserCircle },
 ];
 
 export function DashboardSidebar() {
@@ -36,6 +35,7 @@ export function DashboardSidebar() {
   const collapsed = state === "collapsed";
   const { admin } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
 
   const renderGroup = (label: string, links: typeof primaryLinks) => (
     <SidebarGroup>
@@ -59,6 +59,9 @@ export function DashboardSidebar() {
     </SidebarGroup>
   );
 
+  const isSettingsActive = location.pathname === "/dashboard/settings";
+  const isBillingActive = location.pathname === "/dashboard/billing";
+
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
       <div className="p-4 flex items-center gap-3 border-b border-sidebar-border">
@@ -72,11 +75,52 @@ export function DashboardSidebar() {
           </div>
         )}
       </div>
-      <SidebarContent className="px-2 py-3">
+      <SidebarContent className="px-2 py-3 flex-1">
         {renderGroup("Main", primaryLinks)}
         {renderGroup("Configuration", configLinks)}
         {renderGroup("More", moreLinks)}
       </SidebarContent>
+
+      {/* Bottom section: Settings + Billing */}
+      <div className="border-t border-sidebar-border px-2 py-2 space-y-1">
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild>
+              <NavLink to="/dashboard/settings" end
+                className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+                activeClassName="bg-primary/10 text-primary font-medium">
+                <Settings className="h-4 w-4 shrink-0" />
+                {!collapsed && <span>Settings</span>}
+              </NavLink>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild>
+              <NavLink to="/dashboard/billing" end
+                className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+                activeClassName="bg-primary/10 text-primary font-medium">
+                <CreditCard className="h-4 w-4 shrink-0" />
+                {!collapsed && <span>Billing</span>}
+              </NavLink>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+
+        {/* Free trial indicator */}
+        {!collapsed && (
+          <div className="mx-2 mt-2 mb-1 p-3 rounded-lg bg-muted/50 border border-border">
+            <p className="text-xs font-medium text-foreground">Free Trial</p>
+            <p className="text-xs text-muted-foreground mb-2">14 days left</p>
+            <Progress value={53} className="h-1.5 bg-muted [&>div]:gradient-primary" />
+            <button
+              onClick={() => navigate("/dashboard/billing")}
+              className="mt-2 w-full text-xs font-medium text-center py-1.5 rounded-md gradient-primary text-primary-foreground hover:opacity-90 transition-opacity"
+            >
+              Upgrade plan
+            </button>
+          </div>
+        )}
+      </div>
     </Sidebar>
   );
 }
