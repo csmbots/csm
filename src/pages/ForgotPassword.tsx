@@ -12,13 +12,25 @@ const ForgotPassword = () => {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const sendResetLink = async () => {
+    setLoading(true);
+    setError("");
+
+    try {
+      await resetPassword(email);
+      setSent(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to send reset link");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    await resetPassword(email);
-    setSent(true);
-    setLoading(false);
+    await sendResetLink();
   };
 
   return (
@@ -41,6 +53,8 @@ const ForgotPassword = () => {
             </p>
           </div>
 
+          {error && <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm font-body">{error}</div>}
+
           {!sent ? (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
@@ -52,8 +66,12 @@ const ForgotPassword = () => {
               </Button>
             </form>
           ) : (
-            <Button className="w-full gradient-primary text-primary-foreground font-semibold h-11 font-body" onClick={() => setSent(false)}>
-              Send Again
+            <Button
+              className="w-full gradient-primary text-primary-foreground font-semibold h-11 font-body"
+              onClick={sendResetLink}
+              disabled={loading}
+            >
+              {loading ? "Sending..." : "Send Again"}
             </Button>
           )}
 
