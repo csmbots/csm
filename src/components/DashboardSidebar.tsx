@@ -303,14 +303,3 @@ export function DashboardSidebar() {
     </Sidebar>
   );
 }
-              onClick={() => navigate("/dashboard/billing")}
-              className="mt-2 w-full text-xs font-medium text-center py-1.5 rounded-md gradient-primary text-primary-foreground hover:opacity-90 transition-opacity"
-            >
-              Upgrade plan
-            </button>
-          </div>
-        )}
-      </div>
-    </Sidebar>
-  );
-}
