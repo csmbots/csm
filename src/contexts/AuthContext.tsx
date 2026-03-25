@@ -19,9 +19,9 @@ interface AuthContextType {
   admin: Admin | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  loginWithGoogle: () => Promise<void>;
-  register: (data: RegisterData) => Promise<void>;
+  login: (email: string, password: string) => Promise<Admin>;
+  loginWithGoogle: () => Promise<Admin>;
+  register: (data: RegisterData) => Promise<Admin>;
   logout: () => void;
   verifyEmail: (code: string) => Promise<boolean>;
   resendCode: () => Promise<void>;
@@ -46,8 +46,56 @@ export interface RegisterData {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Use mock mode when no real backend is available
-const USE_MOCK = false; // Set to true for local testing without backend
+type ApiAuthPayload = {
+  admin?: Record<string, unknown>;
+  token?: string;
+} & Record<string, unknown>;
+
+// Development-first: keep auth working even before backend deployment.
+// Set VITE_USE_MOCK=false in .env to force real API mode.
+const USE_MOCK = import.meta.env.VITE_USE_MOCK !== "false";
+
+const mapOrgType = (value: unknown): "school" | "company" => {
+  const normalized = String(value ?? "school").toLowerCase();
+  if (normalized === "company" || normalized === "business") return "company";
+  return "school";
+};
+
+const normalizeAdmin = (raw: Record<string, unknown>): Admin => {
+  const org = (raw.organization as Record<string, unknown> | undefined) ?? {};
+
+  return {
+    id: String(raw.id ?? raw.admin_id ?? ""),
+    firstName: String(raw.firstName ?? raw.first_name ?? "Admin"),
+    lastName: String(raw.lastName ?? raw.last_name ?? "User"),
+    email: String(raw.email ?? ""),
+    username: String(raw.username ?? raw.user_name ?? ""),
+    profile: String(raw.profile ?? "default.jpg"),
+    organizationId: String(raw.organizationId ?? raw.organization_id ?? org.id ?? ""),
+    organizationName: String(raw.organizationName ?? raw.organization_name ?? org.name ?? "Organization"),
+    organizationType: mapOrgType(raw.organizationType ?? raw.organization_type ?? org.type),
+    isVerified: Boolean(raw.isVerified ?? raw.is_verified ?? true),
+    plan: String(raw.plan ?? raw.plan_name ?? "free_trial"),
+  };
+};
+
+const extractAuthPayload = (data: unknown): { admin: Admin; token?: string } => {
+  if (!data || typeof data !== "object") {
+    throw new Error("Invalid auth response from server");
+  }
+
+  const payload = data as ApiAuthPayload;
+  const adminRaw = (payload.admin as Record<string, unknown> | undefined) ?? payload;
+
+  if (!adminRaw.email) {
+    throw new Error("Missing admin details in auth response");
+  }
+
+  return {
+    admin: normalizeAdmin(adminRaw),
+    token: typeof payload.token === "string" ? payload.token : undefined,
+  };
+};
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [admin, setAdmin] = useState<Admin | null>(null);
@@ -89,11 +137,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           organizationType: "school", isVerified: true, plan: "free_trial",
         };
         persistAdmin(mockAdmin);
+        return mockAdmin;
       } else {
         const res = await authApi.login(email, password);
-        if (!res.success) throw new Error(res.error);
-        const { admin: a, token } = res.data as { admin: Admin; token: string };
-        persistAdmin(a, token);
+        if (!res.success) throw new Error(res.error || "Login failed");
+        const { admin: parsedAdmin, token } = extractAuthPayload(res.data);
+        persistAdmin(parsedAdmin, token);
+        return parsedAdmin;
       }
     } finally {
       setIsLoading(false);
@@ -112,13 +162,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           isVerified: true, plan: "free_trial",
         };
         persistAdmin(mockAdmin);
+        return mockAdmin;
       } else {
-        // In production, use Google OAuth SDK to get token, then:
-        // const googleToken = await getGoogleToken();
-        // const res = await authApi.googleAuth(googleToken);
-        // if (!res.success) throw new Error(res.error);
-        // persistAdmin(res.data.admin, res.data.token);
-        throw new Error("Google OAuth not configured yet");
+        throw new Error("Google sign-in is in development mode. Set VITE_USE_MOCK=true while backend OAuth is being finalized.");
       }
     } finally {
       setIsLoading(false);
@@ -137,11 +183,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           isVerified: false, plan: data.plan,
         };
         persistAdmin(newAdmin);
+        return newAdmin;
       } else {
         const res = await authApi.register(data as unknown as Record<string, unknown>);
-        if (!res.success) throw new Error(res.error);
-        const { admin: a, token } = res.data as { admin: Admin; token: string };
-        persistAdmin(a, token);
+        if (!res.success) throw new Error(res.error || "Registration failed");
+        const { admin: parsedAdmin, token } = extractAuthPayload(res.data);
+        persistAdmin(parsedAdmin, token);
+        return parsedAdmin;
       }
     } finally {
       setIsLoading(false);
@@ -164,6 +212,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         persistAdmin(verified);
         return true;
       }
+      if (!res.success) throw new Error(res.error || "Verification failed");
       return false;
     }
   };
@@ -172,7 +221,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (USE_MOCK) {
       await new Promise((r) => setTimeout(r, 1000));
     } else {
-      await authApi.resendCode(admin?.email || "");
+      const res = await authApi.resendCode(admin?.email || "");
+      if (!res.success) throw new Error(res.error || "Failed to resend code");
     }
   };
 
@@ -180,7 +230,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (USE_MOCK) {
       await new Promise((r) => setTimeout(r, 1000));
     } else {
-      await authApi.forgotPassword(email);
+      const res = await authApi.forgotPassword(email);
+      if (!res.success) throw new Error(res.error || "Failed to send password reset link");
     }
   };
 
@@ -188,7 +239,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setAdmin(null);
     localStorage.removeItem("csm_admin");
     localStorage.removeItem("csm_token");
-    if (!USE_MOCK) authApi.logout();
+    if (!USE_MOCK) void authApi.logout();
   };
 
   return (

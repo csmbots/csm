@@ -10,6 +10,33 @@ interface ApiResponse<T = unknown> {
   error?: string;
 }
 
+type AnyRecord = Record<string, unknown>;
+
+const parseResponse = async (res: Response) => {
+  const contentType = res.headers.get("content-type") || "";
+
+  if (contentType.includes("application/json")) {
+    return res.json();
+  }
+
+  const text = await res.text();
+  return text ? { message: text } : {};
+};
+
+const toErrorMessage = (payload: unknown, fallback: string) => {
+  if (typeof payload === "string") return payload;
+
+  if (payload && typeof payload === "object") {
+    const data = payload as AnyRecord;
+    const message = data.message ?? data.error;
+    if (typeof message === "string" && message.trim().length > 0) {
+      return message;
+    }
+  }
+
+  return fallback;
+};
+
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
   const token = localStorage.getItem("csm_token");
   const headers: Record<string, string> = {
@@ -23,27 +50,88 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
       ...options,
       headers,
     });
-    const json = await res.json();
+
+    const payload = await parseResponse(res);
     if (!res.ok) {
-      return { success: false, error: json.message || json.error || "Request failed" };
+      return { success: false, error: toErrorMessage(payload, "Request failed") };
     }
-    return { success: true, data: json.data ?? json, message: json.message };
+
+    if (payload && typeof payload === "object" && "success" in (payload as AnyRecord)) {
+      const normalized = payload as AnyRecord;
+      if (normalized.success === false) {
+        return {
+          success: false,
+          error: toErrorMessage(payload, "Request failed"),
+          message: typeof normalized.message === "string" ? normalized.message : undefined,
+        };
+      }
+
+      return {
+        success: true,
+        data: (normalized.data ?? normalized) as T,
+        message: typeof normalized.message === "string" ? normalized.message : undefined,
+      };
+    }
+
+    return { success: true, data: payload as T };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Network error";
     return { success: false, error: message };
   }
 }
 
+const normalizeRegisterPayload = (data: Record<string, unknown>) => {
+  const firstName = String(data.firstName ?? "");
+  const lastName = String(data.lastName ?? "");
+  const email = String(data.email ?? "");
+  const username = String(data.username ?? "");
+  const password = String(data.password ?? "");
+  const orgName = String(data.orgName ?? "");
+  const orgType = String(data.orgType ?? "school");
+  const orgAddress = String(data.orgAddress ?? "");
+  const orgEmail = String(data.orgEmail ?? "");
+  const orgPhone = String(data.orgPhone ?? "");
+  const plan = String(data.plan ?? "free_trial");
+
+  return {
+    firstName,
+    lastName,
+    email,
+    username,
+    password,
+    orgName,
+    orgType,
+    orgAddress,
+    orgEmail,
+    orgPhone,
+    plan,
+
+    first_name: firstName,
+    last_name: lastName,
+    organization_name: orgName,
+    organization_type: orgType === "school" ? "education" : orgType,
+    organization_address: orgAddress,
+    organization_email: orgEmail,
+    organization_phone: orgPhone,
+  };
+};
+
 // Auth endpoints
 export const authApi = {
   login: (email: string, password: string) =>
-    request("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }),
+    request("/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email, password, identifier: email, username: email }),
+    }),
 
   register: (data: Record<string, unknown>) =>
-    request("/auth/register", { method: "POST", body: JSON.stringify(data) }),
+    request("/auth/register", { method: "POST", body: JSON.stringify(normalizeRegisterPayload(data)) }),
 
   verifyEmail: (code: string, email: string) =>
-    request("/auth/verify-email", { method: "POST", body: JSON.stringify({ code, email }) }),
+    request("/auth/verify-email", {
+      method: "POST",
+      body: JSON.stringify({ code, email, verificationCode: code }),
+    }),
 
   resendCode: (email: string) =>
     request("/auth/resend-code", { method: "POST", body: JSON.stringify({ email }) }),
@@ -52,7 +140,7 @@ export const authApi = {
     request("/auth/forgot-password", { method: "POST", body: JSON.stringify({ email }) }),
 
   resetPassword: (token: string, password: string) =>
-    request("/auth/reset-password", { method: "POST", body: JSON.stringify({ token, password }) }),
+    request("/auth/reset-password", { method: "POST", body: JSON.stringify({ token, password, newPassword: password }) }),
 
   googleAuth: (googleToken: string) =>
     request("/auth/google", { method: "POST", body: JSON.stringify({ token: googleToken }) }),

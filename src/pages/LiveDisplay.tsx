@@ -1,7 +1,9 @@
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { useParams } from "react-router-dom";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { CalendarCheck, Users, Clock } from "lucide-react";
+import { Clock, Home, IdCard, Moon, Sun } from "lucide-react";
 
 const mockLiveData = [
   { id: 1, name: "Jean Baptiste", role: "student", class: "S1 Science", image: null, time: "08:02 AM", method: "card" },
@@ -15,6 +17,8 @@ const LiveDisplay = () => {
   const { orgSlug } = useParams();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [latestEntry, setLatestEntry] = useState(mockLiveData[0]);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [dark, setDark] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -25,97 +29,91 @@ const LiveDisplay = () => {
     let idx = 0;
     const cycle = setInterval(() => {
       idx = (idx + 1) % mockLiveData.length;
+      setActiveIndex(idx);
       setLatestEntry(mockLiveData[idx]);
     }, 4000);
     return () => clearInterval(cycle);
   }, []);
 
+  const attendanceRate = useMemo(() => {
+    const expectedPeople = 500;
+    const checkedIn = 430 + activeIndex * 4;
+    return Math.min(99, Math.round((checkedIn / expectedPeople) * 100));
+  }, [activeIndex]);
+
+  const handleToggleTheme = () => {
+    setDark((prev) => {
+      const next = !prev;
+      document.documentElement.classList.toggle("dark", next);
+      return next;
+    });
+  };
+
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      {/* Header */}
-      <header className="gradient-primary p-4 flex items-center justify-between shadow-lg">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 bg-primary-foreground/20 rounded-xl flex items-center justify-center">
-            <span className="text-primary-foreground font-heading font-bold text-xl">C</span>
-          </div>
-          <div>
-            <h1 className="text-primary-foreground font-heading font-bold text-xl">CSM Live Attendance</h1>
-            <p className="text-primary-foreground/70 text-sm">{orgSlug || "Demo Organization"}</p>
-          </div>
-        </div>
-        <div className="text-right text-primary-foreground">
-          <div className="text-2xl font-heading font-bold">{currentTime.toLocaleTimeString()}</div>
-          <div className="text-sm opacity-70">{currentTime.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}</div>
-        </div>
-      </header>
+    <div className="min-h-screen bg-accent flex flex-col justify-between relative overflow-hidden">
+      <div className="absolute top-4 left-4 z-20">
+        <Button asChild variant="ghost" size="icon" className="rounded-full bg-card/80 backdrop-blur border border-border">
+          <Link to="/dashboard">
+            <Home className="h-5 w-5" />
+          </Link>
+        </Button>
+      </div>
 
-      {/* Main display */}
-      <div className="flex-1 p-6 flex flex-col gap-6">
-        {/* Featured latest entry */}
-        <Card className="border-0 shadow-xl bg-card overflow-hidden">
-          <CardContent className="p-0">
-            <div className="flex items-center">
-              <div className="gradient-primary p-8 flex items-center justify-center">
-                <div className="w-24 h-24 bg-primary-foreground/20 rounded-full flex items-center justify-center text-primary-foreground text-3xl font-heading font-bold">
-                  {latestEntry.name.split(" ").map(n => n[0]).join("")}
-                </div>
-              </div>
-              <div className="p-6 flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="w-3 h-3 bg-success rounded-full animate-pulse-dot" />
-                  <span className="text-sm text-success font-medium">Just checked in</span>
-                </div>
-                <h2 className="text-3xl font-heading font-bold text-foreground">{latestEntry.name}</h2>
-                <p className="text-lg text-muted-foreground mt-1">{latestEntry.class} • {latestEntry.role}</p>
-                <div className="flex items-center gap-4 mt-3 text-sm text-muted-foreground">
-                  <span className="flex items-center gap-1"><Clock className="h-4 w-4" /> {latestEntry.time}</span>
-                  <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">{latestEntry.method}</span>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="absolute top-4 right-4 z-20">
+        <Button variant="ghost" size="icon" className="rounded-full bg-card/80 backdrop-blur border border-border" onClick={handleToggleTheme}>
+          {dark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+        </Button>
+      </div>
 
-        {/* Recent entries grid */}
+      <div className="flex-1 flex flex-col items-center justify-center px-6 text-center gap-6">
+        <div className="w-28 h-20 rounded-2xl bg-card border border-border shadow-sm flex items-center justify-center">
+          <IdCard className="h-10 w-10 text-foreground" />
+        </div>
+
+        <div className="relative rounded-3xl bg-card px-8 py-6 border border-border shadow-lg max-w-md w-full">
+          <p className="text-lg font-heading font-bold text-foreground">Hey! Tap Your Card...</p>
+          <p className="text-sm text-muted-foreground mt-1">{orgSlug || "demo-organization"}</p>
+
+          <span className="absolute left-10 -bottom-3 w-6 h-6 bg-card border-l border-b border-border rotate-[-45deg]" />
+        </div>
+
         <div>
-          <h3 className="font-heading font-bold text-foreground text-lg mb-3 flex items-center gap-2">
-            <CalendarCheck className="h-5 w-5 text-primary" /> Recent Entries
-          </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
-            {mockLiveData.map(entry => (
-              <Card key={entry.id} className="border-0 shadow-sm bg-card hover:shadow-md transition-shadow">
-                <CardContent className="p-4 text-center">
-                  <div className="w-14 h-14 gradient-primary rounded-full flex items-center justify-center text-primary-foreground text-lg font-bold mx-auto mb-2">
-                    {entry.name.split(" ").map(n => n[0]).join("")}
-                  </div>
-                  <h4 className="font-heading font-semibold text-foreground text-sm truncate">{entry.name}</h4>
-                  <p className="text-xs text-muted-foreground">{entry.class}</p>
-                  <p className="text-xs text-primary mt-1">{entry.time}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          <p className="text-xl font-heading font-bold text-foreground">{latestEntry.name}</p>
+          <p className="text-sm text-muted-foreground">Last scan • {latestEntry.time}</p>
         </div>
 
-        {/* Stats bar */}
-        <div className="grid grid-cols-3 gap-4">
-          {[
-            { label: "Total Today", value: "432", icon: Users },
-            { label: "Attendance Rate", value: "92%", icon: CalendarCheck },
-            { label: "Last Scan", value: latestEntry.time, icon: Clock },
-          ].map((s, i) => (
-            <Card key={i} className="border-0 shadow-sm bg-card">
-              <CardContent className="p-4 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center"><s.icon className="h-5 w-5 text-primary" /></div>
-                <div><p className="text-xs text-muted-foreground">{s.label}</p><p className="text-xl font-heading font-bold text-foreground">{s.value}</p></div>
-              </CardContent>
-            </Card>
-          ))}
+        <button className="px-8 py-2 rounded-full gradient-primary text-primary-foreground font-bold tracking-wide shadow-md">
+          {latestEntry.role.toUpperCase()}
+        </button>
+
+        <div className="text-sm text-muted-foreground">
+          {currentTime.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
         </div>
       </div>
 
-      <footer className="text-center p-3 text-xs text-muted-foreground border-t border-border">
-        Powered by <strong className="text-primary">CSM Platform</strong> by <a href="https://cwanda.site" className="text-primary hover:underline" target="_blank">Cwanda</a>
+      <div className="px-4 pb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Card className="border border-border/60 bg-card/90">
+            <CardContent className="p-4">
+              <p className="text-xs text-muted-foreground">Attendance Rate</p>
+              <p className="text-2xl font-heading font-bold text-foreground">{attendanceRate}%</p>
+            </CardContent>
+          </Card>
+
+          <Card className="border border-border/60 bg-card/90">
+            <CardContent className="p-4 flex items-center justify-between">
+              <div>
+                <p className="text-xs text-muted-foreground">Last Scan</p>
+                <p className="text-lg font-heading font-semibold text-foreground">{latestEntry.time}</p>
+              </div>
+              <Clock className="h-5 w-5 text-primary" />
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      <footer className="text-center p-3 text-xs text-muted-foreground border-t border-border/60">
+        Powered by <strong className="text-primary">CSM Platform</strong>
       </footer>
     </div>
   );

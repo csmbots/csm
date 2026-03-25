@@ -19,20 +19,20 @@ const Login = () => {
     e.preventDefault();
     setError("");
     try {
-      await login(email, password);
-      navigate("/dashboard");
-    } catch {
-      setError("Invalid email or password");
+      const loggedAdmin = await login(email, password);
+      navigate(loggedAdmin.isVerified ? "/dashboard" : "/verify-email");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Invalid email or password");
     }
   };
 
   const handleGoogleLogin = async () => {
     setError("");
     try {
-      await loginWithGoogle();
-      navigate("/dashboard");
-    } catch {
-      setError("Google sign-in failed. Please try again.");
+      const loggedAdmin = await loginWithGoogle();
+      navigate(loggedAdmin.isVerified ? "/dashboard" : "/verify-email");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Google sign-in failed. Please try again.");
     }
   };
 
