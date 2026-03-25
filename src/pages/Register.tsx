@@ -19,6 +19,7 @@ const Register = () => {
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [authMethod, setAuthMethod] = useState<"email" | "google" | null>(null);
+  const [error, setError] = useState("");
   const [form, setForm] = useState<RegisterData>({
     firstName: "", lastName: "", email: "", username: "", password: "",
     orgName: "", orgType: "school", orgAddress: "", orgEmail: "", orgPhone: "",
@@ -28,18 +29,31 @@ const Register = () => {
   const set = (key: keyof RegisterData, val: string) => setForm((f) => ({ ...f, [key]: val }));
 
   const handleSubmit = async () => {
-    await register(form);
-    navigate("/verify-email");
+    setError("");
+    try {
+      const createdAdmin = await register(form);
+      navigate(createdAdmin.isVerified ? "/dashboard" : "/verify-email");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create account");
+    }
   };
 
   const handleGoogleSignup = async () => {
+    setError("");
     try {
-      await loginWithGoogle();
+      const googleAdmin = await loginWithGoogle();
+      setForm((prev) => ({
+        ...prev,
+        firstName: googleAdmin.firstName,
+        lastName: googleAdmin.lastName,
+        email: googleAdmin.email,
+        username: googleAdmin.username || googleAdmin.email.split("@")[0],
+      }));
       // After Google auth, go to org step
       setAuthMethod("google");
       setStep(1);
-    } catch {
-      // handle error
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Google signup failed");
     }
   };
 
@@ -148,6 +162,10 @@ const Register = () => {
           </div>
 
           <div className="space-y-4 animate-fade-in">
+            {error && (
+              <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm font-body">{error}</div>
+            )}
+
             {step === 0 && authMethod === "email" && (
               <>
                 <div className="grid grid-cols-2 gap-3">
