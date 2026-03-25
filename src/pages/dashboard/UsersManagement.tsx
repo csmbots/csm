@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,8 +18,25 @@ const mockUsers = [
 ];
 
 const UsersManagement = () => {
+  const { admin } = useAuth();
+  const [searchParams] = useSearchParams();
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
+
+  const tabs = admin?.organizationType === "company"
+    ? [
+        { view: "list", label: "Users List" },
+        { view: "departments", label: "Department" },
+        { view: "categories", label: "Category" },
+      ]
+    : [
+        { view: "list", label: "Users List" },
+        { view: "trades", label: "Trades" },
+        { view: "classes", label: "Classes" },
+      ];
+
+  const selectedView = searchParams.get("view") || "list";
+  const activeView = tabs.some((tab) => tab.view === selectedView) ? selectedView : "list";
 
   const filtered = mockUsers.filter(u => {
     const matchSearch = `${u.firstName} ${u.lastName} ${u.email} ${u.cardUid}`.toLowerCase().includes(search.toLowerCase());
@@ -25,18 +44,58 @@ const UsersManagement = () => {
     return matchSearch && matchRole;
   });
 
+  const scopedUsers = useMemo(() => {
+    if (activeView === "departments" || activeView === "classes") {
+      return filtered.filter((u) => /S\d|Science|Arts|MPC/i.test(u.department));
+    }
+
+    if (activeView === "categories" || activeView === "trades") {
+      return filtered.filter((u) => /Engineering|HR|employee/i.test(`${u.department} ${u.role}`));
+    }
+
+    return filtered;
+  }, [activeView, filtered]);
+
+  const grouped = useMemo(() => {
+    return scopedUsers.reduce<Record<string, number>>((acc, user) => {
+      acc[user.department] = (acc[user.department] || 0) + 1;
+      return acc;
+    }, {});
+  }, [scopedUsers]);
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row justify-between gap-4">
         <div>
           <h1 className="text-2xl font-heading font-bold text-foreground flex items-center gap-2"><Users className="h-6 w-6 text-primary" /> Users Management</h1>
-          <p className="text-muted-foreground text-sm mt-1">Manage students, employees, and their profiles.</p>
+          <p className="text-muted-foreground text-sm mt-1">{tabs.find((tab) => tab.view === activeView)?.label} segment.</p>
         </div>
         <div className="flex gap-2">
           <Button className="gradient-primary text-primary-foreground"><Plus className="h-4 w-4 mr-2" /> Add User</Button>
           <Button variant="outline"><Download className="h-4 w-4 mr-2" /> Export</Button>
         </div>
       </div>
+
+      <div className="flex flex-wrap gap-2">
+        {tabs.map((tab) => (
+          <Button key={tab.view} asChild variant={activeView === tab.view ? "default" : "outline"} className={activeView === tab.view ? "gradient-primary text-primary-foreground" : ""}>
+            <Link to={`/dashboard/users?view=${tab.view}`}>{tab.label}</Link>
+          </Button>
+        ))}
+      </div>
+
+      {activeView !== "list" && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {Object.entries(grouped).map(([name, count]) => (
+            <Card key={name} className="border border-border/60 bg-card">
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground">{name}</p>
+                <p className="text-2xl font-heading font-bold text-foreground">{count}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
       <Card className="border-0 shadow-sm bg-card">
         <CardHeader className="pb-3">
@@ -61,7 +120,7 @@ const UsersManagement = () => {
               <TableRow><TableHead>Name</TableHead><TableHead>Email</TableHead><TableHead>Role</TableHead><TableHead>Card UID</TableHead><TableHead>Dept/Class</TableHead><TableHead>Status</TableHead><TableHead>Actions</TableHead></TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map(u => (
+              {scopedUsers.map(u => (
                 <TableRow key={u.id}>
                   <TableCell className="font-medium text-foreground">
                     <div className="flex items-center gap-2">
