@@ -39,8 +39,8 @@ interface Schedule {
   endTime: string;
   daysOfWeek: string[];
   isActive: boolean;
-  targetType: "all" | "departments" | "positions" | "sections" | "classes" | "specific_users";
-  graceMinutes: number;
+  targetType: "all" | "departments" | "positions" | "sections" | "classes";
+  targetIds: number[];
 }
 
 /* ─── Mock data ─── */
@@ -97,7 +97,7 @@ const AttendanceManagement = () => {
   const [schDays, setSchDays] = useState<string[]>(["Mon", "Tue", "Wed", "Thu", "Fri"]);
   const [schActive, setSchActive] = useState(true);
   const [schTarget, setSchTarget] = useState<Schedule["targetType"]>("all");
-  const [schGrace, setSchGrace] = useState(0);
+  const [schSubTarget, setSchSubTarget] = useState<string>("");
 
   /* Manual attendance */
   const [showManualDialog, setShowManualDialog] = useState(false);
@@ -118,7 +118,7 @@ const AttendanceManagement = () => {
     setSchName(""); setSchDesc(""); setSchType("both");
     setSchStart("08:00"); setSchEnd("17:00");
     setSchDays(["Mon", "Tue", "Wed", "Thu", "Fri"]);
-    setSchActive(true); setSchTarget("all"); setSchGrace(0);
+    setSchActive(true); setSchTarget("all"); setSchSubTarget("");
     setEditingSchedule(null);
   };
 
@@ -129,7 +129,7 @@ const AttendanceManagement = () => {
     setSchName(s.name); setSchDesc(s.description); setSchType(s.type);
     setSchStart(s.startTime); setSchEnd(s.endTime);
     setSchDays(s.daysOfWeek.map(d => d.charAt(0).toUpperCase() + d.slice(1, 3)));
-    setSchActive(s.isActive); setSchTarget(s.targetType); setSchGrace(s.graceMinutes);
+    setSchActive(s.isActive); setSchTarget(s.targetType); setSchSubTarget("");
     setShowScheduleDialog(true);
   };
 
@@ -140,7 +140,7 @@ const AttendanceManagement = () => {
       name: schName, description: schDesc, type: schType,
       startTime: schStart, endTime: schEnd,
       daysOfWeek: schDays.map(d => DAY_FULL[d]),
-      isActive: schActive, targetType: schTarget, graceMinutes: schGrace,
+      isActive: schActive, targetType: schTarget, targetIds: [],
     };
     if (editingSchedule) {
       setSchedules(prev => prev.map(s => s.id === editingSchedule.id ? data : s));
@@ -175,8 +175,8 @@ const AttendanceManagement = () => {
 
   /* ─── Target type options ─── */
   const targetOptions = orgType === "company"
-    ? [{ value: "all", label: "All Users" }, { value: "departments", label: "Department" }, { value: "positions", label: "Position" }, { value: "specific_users", label: "Specific Users" }]
-    : [{ value: "all", label: "All Users" }, { value: "sections", label: "Trade / Section" }, { value: "classes", label: "Class" }, { value: "specific_users", label: "Specific Users" }];
+    ? [{ value: "all", label: "All Users" }, { value: "departments", label: "Department" }, { value: "positions", label: "Position" }]
+    : [{ value: "all", label: "All Users" }, { value: "departments", label: "Department" }, { value: "positions", label: "Position" }, { value: "sections", label: "Section / Trade" }, { value: "classes", label: "Class" }];
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -460,12 +460,6 @@ const AttendanceManagement = () => {
               </div>
             </div>
 
-            {/* Grace minutes */}
-            <div className="space-y-1.5">
-              <Label>Grace Period (minutes)</Label>
-              <Input type="number" min={0} value={schGrace} onChange={e => setSchGrace(Number(e.target.value))} />
-            </div>
-
             {/* Days of Week */}
             <div className="space-y-1.5">
               <Label>Days of Week *</Label>
@@ -490,28 +484,67 @@ const AttendanceManagement = () => {
             {/* Target Users */}
             <div className="space-y-1.5">
               <Label className="flex items-center gap-1"><Users className="h-3.5 w-3.5" /> Target Users</Label>
-              <div className="flex items-center gap-3 text-sm">
-                {targetOptions.map(o => (
-                  <label key={o.value} className="flex items-center gap-1 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="targetType"
-                      checked={schTarget === o.value}
-                      onChange={() => setSchTarget(o.value as Schedule["targetType"])}
-                      className="accent-primary"
-                    />
-                    {o.label}
-                  </label>
-                ))}
-              </div>
-              {schTarget !== "all" && schTarget !== "specific_users" && (
-                <Select>
+              <Select value={schTarget} onValueChange={v => { setSchTarget(v as Schedule["targetType"]); setSchSubTarget(""); }}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {targetOptions.map(o => (
+                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {/* Sub-select for departments */}
+              {schTarget === "departments" && (
+                <Select value={schSubTarget} onValueChange={setSchSubTarget}>
                   <SelectTrigger className="mt-2">
-                    <SelectValue placeholder={`Select ${orgType === "company" ? "department" : "section"}...`} />
+                    <SelectValue placeholder="Select department..." />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="1">Administration</SelectItem>
                     <SelectItem value="2">Engineering</SelectItem>
+                    <SelectItem value="3">Staff</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+
+              {/* Sub-select for positions */}
+              {schTarget === "positions" && (
+                <Select value={schSubTarget} onValueChange={setSchSubTarget}>
+                  <SelectTrigger className="mt-2">
+                    <SelectValue placeholder="Select position..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">Teacher</SelectItem>
+                    <SelectItem value="2">Manager</SelectItem>
+                    <SelectItem value="3">Cleaner</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+
+              {/* Sub-select for sections (education only) */}
+              {schTarget === "sections" && (
+                <Select value={schSubTarget} onValueChange={setSchSubTarget}>
+                  <SelectTrigger className="mt-2">
+                    <SelectValue placeholder="Select section / trade..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">MPC</SelectItem>
+                    <SelectItem value="2">SOD</SelectItem>
+                    <SelectItem value="3">Primary</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+
+              {/* Sub-select for classes (education only) */}
+              {schTarget === "classes" && (
+                <Select value={schSubTarget} onValueChange={setSchSubTarget}>
+                  <SelectTrigger className="mt-2">
+                    <SelectValue placeholder="Select class..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">S4B</SelectItem>
+                    <SelectItem value="2">L5A</SelectItem>
+                    <SelectItem value="3">P5C</SelectItem>
                   </SelectContent>
                 </Select>
               )}
